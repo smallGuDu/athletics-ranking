@@ -1,136 +1,170 @@
 const fs = require('fs');
 const path = require('path');
 
+// 简单存储方案：使用临时文件
+let storage = {
+    data: [],
+    filePath: null,
+    
+    init: function() {
+        try {
+            // 尝试使用 /tmp 目录
+            this.filePath = '/tmp/athletics_data.json';
+            console.log('存储路径:', this.filePath);
+            
+            if (fs.existsSync(this.filePath)) {
+                const data = fs.readFileSync(this.filePath, 'utf8');
+                this.data = JSON.parse(data);
+                console.log('从文件加载数据:', this.data.length, '条记录');
+            } else {
+                this.data = this.getSampleData();
+                this.save();
+                console.log('创建示例数据');
+            }
+            return true;
+        } catch (error) {
+            console.error('初始化存储失败:', error.message);
+            // 使用内存存储
+            this.data = this.getSampleData();
+            return false;
+        }
+    },
+    
+    save: function() {
+        try {
+            if (this.filePath) {
+                fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('保存数据失败:', error.message);
+            return false;
+        }
+    },
+    
+    getSampleData: function() {
+        return [
+            {
+                id: "1",
+                name: "张三",
+                distance: 10.5,
+                pace: "5:20",
+                date: new Date().toISOString().split('T')[0],
+                reflections: "今天状态不错，突破了10公里大关！",
+                photo: null,
+                timestamp: new Date().toISOString(),
+                status: "approved"
+            },
+            {
+                id: "2",
+                name: "李四",
+                distance: 8.2,
+                pace: "4:45",
+                date: new Date().toISOString().split('T')[0],
+                reflections: "速度训练，配速有提升",
+                photo: null,
+                timestamp: new Date().toISOString(),
+                status: "approved"
+            },
+            {
+                id: "3",
+                name: "王五",
+                distance: 21.1,
+                pace: "6:10",
+                date: new Date().toISOString().split('T')[0],
+                reflections: "完成了半程马拉松，虽然累但很有成就感",
+                photo: null,
+                timestamp: new Date().toISOString(),
+                status: "approved"
+            }
+        ];
+    }
+};
+
+// 初始化存储
+storage.init();
+
 exports.handler = async function(event, context) {
-    console.log('=== add-data 函数开始执行 ===');
-    console.log('事件类型:', event.httpMethod);
-    console.log('请求体长度:', event.body?.length || 0);
+    console.log('=== add-data 函数调用 ===');
     
     try {
         // 解析请求数据
         const athleteData = JSON.parse(event.body || '{}');
-        console.log('解析的数据:', JSON.stringify(athleteData, null, 2));
         
-        // 验证必需字段
-        if (!athleteData.name || !athleteData.distance || !athleteData.pace) {
-            console.log('验证失败：缺少必需字段');
+        // 验证数据
+        if (!athleteData.name || athleteData.name.trim() === '') {
             return {
                 statusCode: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                body: JSON.stringify({ 
-                    error: '缺少必需字段: name, distance, pace',
-                    received: athleteData
-                })
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: '姓名不能为空' })
             };
         }
         
-        // 添加ID和时间戳
-        athleteData.id = Date.now().toString();
-        athleteData.timestamp = new Date().toISOString();
-        athleteData.status = athleteData.status || 'pending';
-        
-        console.log('处理后的数据:', JSON.stringify(athleteData, null, 2));
-        
-        // 尝试不同的存储方案
-        
-        // 方案A：尝试写入文件系统
-        try {
-            const dataDir = '/tmp/_data';  // 使用Netlify的/tmp目录，有写入权限
-            const dataPath = path.join(dataDir, 'athletes.json');
-            
-            console.log('数据目录:', dataDir);
-            console.log('数据路径:', dataPath);
-            
-            // 确保目录存在
-            if (!fs.existsSync(dataDir)) {
-                console.log('创建数据目录...');
-                fs.mkdirSync(dataDir, { recursive: true });
-            }
-            
-            let athletes = [];
-            
-            // 读取现有数据
-            if (fs.existsSync(dataPath)) {
-                console.log('读取现有数据文件...');
-                const data = fs.readFileSync(dataPath, 'utf8');
-                athletes = JSON.parse(data);
-                console.log('读取到', athletes.length, '条记录');
-            } else {
-                console.log('数据文件不存在，创建新文件');
-            }
-            
-            // 添加新数据
-            athletes.push(athleteData);
-            console.log('添加后总数:', athletes.length);
-            
-            // 保存数据
-            console.log('保存数据到文件...');
-            fs.writeFileSync(dataPath, JSON.stringify(athletes, null, 2));
-            console.log('数据保存成功');
-            
+        const distance = parseFloat(athleteData.distance);
+        if (isNaN(distance) || distance <= 0) {
             return {
-                statusCode: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                body: JSON.stringify({ 
-                    success: true, 
-                    id: athleteData.id,
-                    message: '数据添加成功（文件存储）',
-                    count: athletes.length,
-                    storage: 'filesystem',
-                    path: dataPath
-                })
-            };
-            
-        } catch (fileError) {
-            console.error('文件存储失败:', fileError.message);
-            console.error('文件错误堆栈:', fileError.stack);
-            
-            // 方案B：使用内存存储作为后备
-            console.log('尝试内存存储...');
-            
-            // 这里可以添加内存存储逻辑
-            // 注意：内存存储在函数调用之间不会持久化
-            
-            return {
-                statusCode: 200,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*'
-                },
-                body: JSON.stringify({ 
-                    success: true, 
-                    id: athleteData.id,
-                    message: '数据添加成功（内存存储）',
-                    warning: '数据不会持久化，重启后会丢失',
-                    storage: 'memory',
-                    data: athleteData
-                })
+                statusCode: 400,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: '距离必须是大于0的数字' })
             };
         }
+        
+        if (!athleteData.pace || !athleteData.pace.match(/^\d+:\d{2}$/)) {
+            return {
+                statusCode: 400,
+                headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+                body: JSON.stringify({ error: '配速格式不正确，请使用"分钟:秒"格式' })
+            };
+        }
+        
+        // 准备数据
+        const newAthlete = {
+            id: Date.now().toString(),
+            name: athleteData.name.trim(),
+            distance: distance,
+            pace: athleteData.pace,
+            date: athleteData.date || new Date().toISOString().split('T')[0],
+            reflections: athleteData.reflections || '',
+            photo: athleteData.photo || null,
+            timestamp: new Date().toISOString(),
+            status: 'pending'
+        };
+        
+        console.log('准备添加数据:', newAthlete);
+        
+        // 添加到存储
+        storage.data.push(newAthlete);
+        const saved = storage.save();
+        
+        return {
+            statusCode: 200,
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Access-Control-Allow-Origin': '*' 
+            },
+            body: JSON.stringify({ 
+                success: true, 
+                message: '数据添加成功',
+                storage: saved ? 'file' : 'memory',
+                id: newAthlete.id,
+                athlete: newAthlete
+            })
+        };
         
     } catch (error) {
-        console.error('=== 全局错误 ===');
-        console.error('错误信息:', error.message);
-        console.error('错误堆栈:', error.stack);
-        console.error('请求体:', event.body);
+        console.error('处理请求时出错:', error);
         
         return {
             statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Access-Control-Allow-Origin': '*' 
             },
             body: JSON.stringify({ 
                 error: '添加数据失败',
                 details: error.message,
-                stack: error.stack,
-                timestamp: new Date().toISOString()
+                suggestion: '请检查数据格式是否正确'
             })
         };
     }
