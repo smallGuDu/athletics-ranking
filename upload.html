@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上传跑步数据 - 田径社排名系统</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-cloud-upload-alt"></i> 上传跑步数据</h1>
+            <p>分享您的跑步成绩、照片和心得</p>
+            <nav>
+                <a href="index.html">排行榜</a>
+                <a href="upload.html" class="active">上传数据</a>
+                <a href="admin.html">管理</a>
+            </nav>
+        </header>
+
+        <div class="form-container">
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="name"><i class="fas fa-user"></i> 姓名 *</label>
+                    <input type="text" id="name" name="name" required placeholder="请输入您的姓名">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="distance"><i class="fas fa-road"></i> 运动距离 (km) *</label>
+                        <input type="number" id="distance" name="distance" step="0.01" min="0.1" required placeholder="例如：5.2">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pace"><i class="fas fa-tachometer-alt"></i> 平均配速 (分钟/km) *</label>
+                        <input type="text" id="pace" name="pace" required placeholder="格式：5:30">
+                        <small class="form-help">格式：分钟:秒，例如 5:30 表示每公里5分30秒</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="date"><i class="far fa-calendar-alt"></i> 运动日期 *</label>
+                    <input type="date" id="date" name="date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="photo"><i class="far fa-image"></i> 运动照片 (可选)</label>
+                    <div class="file-upload-area" id="file-upload-area">
+                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <p class="upload-text">点击或拖拽上传图片</p>
+                        <p class="upload-subtext">支持 JPG、PNG 格式，最大 10MB</p>
+                        <input type="file" id="photo" name="photo" accept="image/*" hidden>
+                    </div>
+                    <div id="photo-preview" class="photo-preview"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="reflections"><i class="far fa-comment-dots"></i> 跑步心得 (可选)</label>
+                    <textarea id="reflections" name="reflections" rows="4" placeholder="分享您的跑步感受、心得或体会..."></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submit-btn">
+                        <i class="fas fa-paper-plane"></i> 提交数据
+                    </button>
+                    <button type="reset" class="btn btn-secondary">
+                        <i class="fas fa-redo"></i> 重置
+                    </button>
+                    <a href="index.html" class="btn btn-link">
+                        <i class="fas fa-arrow-left"></i> 返回排行榜
+                    </a>
+                </div>
+
+                <div id="form-message" class="form-message"></div>
+                
+                <div class="upload-notice">
+                    <h4><i class="fas fa-info-circle"></i> 上传说明：</h4>
+                    <ul>
+                        <li>带 * 号为必填项</li>
+                        <li>图片将上传到 Cloudinary 云存储</li>
+                        <li>审核通过后数据将显示在排行榜</li>
+                        <li>点击排行榜中的项目可以查看照片和心得</li>
+                    </ul>
+                </div>
+            </form>
+        </div>
+
+        <footer>
+            <p>田径社排名系统 &copy; 2023 | 使用Netlify构建 | 图片存储: Cloudinary</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="cloudinary-upload.js"></script>
+    <script>
+        // 设置默认日期为今天
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
+            
+            // 文件上传区域交互
+            const uploadArea = document.getElementById('file-upload-area');
+            const fileInput = document.getElementById('photo');
+            const preview = document.getElementById('photo-preview');
+            
+            // 点击上传区域触发文件选择
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            // 拖拽上传功能
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+            
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+            
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    handleFileSelect(fileInput.files[0]);
+                }
+            });
+            
+            // 文件选择变化
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length) {
+                    handleFileSelect(e.target.files[0]);
+                }
+            });
+            
+            // 处理文件选择
+            function handleFileSelect(file) {
+                // 验证文件类型和大小
+                const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                const maxSize = 10 * 1024 * 1024; // 10MB
+                
+                if (!validTypes.includes(file.type)) {
+                    showMessage('form-message', '只支持 JPG、PNG、GIF、WebP 格式的图片', 'error');
+                    return;
+                }
+                
+                if (file.size > maxSize) {
+                    showMessage('form-message', '图片大小不能超过 10MB', 'error');
+                    return;
+                }
+                
+                // 显示预览
+                preview.innerHTML = '';
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.className = 'preview-image';
+                    preview.appendChild(img);
+                    
+                    // 显示文件名和大小
+                    const fileInfo = document.createElement('div');
+                    fileInfo.className = 'file-info';
+                    fileInfo.innerHTML = `
+                        <p><strong>文件名：</strong>${file.name}</p>
+                        <p><strong>大小：</strong>${(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                    `;
+                    preview.appendChild(fileInfo);
+                };
+                
+                reader.readAsDataURL(file);
+            }
+            
+            // 表单提交处理
+            document.getElementById('upload-form').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                await submitAthleteData();
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "name": "张三",
+    "distance": 10.5,
+    "pace": "5:20",
+    "date": "2023-10-15",
+    "reflections": "今天状态不错，突破了10公里大关！",
+    "photo": null,
+    "timestamp": "2023-10-15T08:30:00Z"
+  },
+  {
+    "id": "2",
+    "name": "李四",
+    "distance": 8.2,
+    "pace": "4:45",
+    "date": "2023-10-14",
+    "reflections": "速度训练，配速有提升",
+    "photo": null,
+    "timestamp": "2023-10-14T07:15:00Z"
+  },
+  {
+    "id": "3",
+    "name": "王五",
+    "distance": 21.1,
+    "pace": "6:10",
+    "date": "2023-10-13",
+    "reflections": "完成了半程马拉松，虽然累但很有成就感",
+    "photo": null,
+    "timestamp": "2023-10-13T10:45:00Z"
+  }
+]

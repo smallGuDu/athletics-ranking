@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>田径社排名系统</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-running"></i> 田径社排名系统</h1>
+            <p>记录每一次奔跑，见证每一步进步</p>
+            <nav>
+                <a href="index.html" class="active">排行榜</a>
+                <a href="upload.html">上传数据</a>
+                <a href="admin.html">管理</a>
+            </nav>
+        </header>
+
+        <div class="rankings-container">
+            <div class="stats-summary">
+                <div class="stat-card">
+                    <h3>总跑量</h3>
+                    <p id="total-distance">0 km</p>
+                </div>
+                <div class="stat-card">
+                    <h3>参与人数</h3>
+                    <p id="total-athletes">0</p>
+                </div>
+                <div class="stat-card">
+                    <h3>平均配速</h3>
+                    <p id="average-pace">0:00</p>
+                </div>
+            </div>
+
+            <div class="ranking-header">
+                <h2><i class="fas fa-trophy"></i> 田径社排行榜</h2>
+                <div class="sort-options">
+                    <button class="sort-btn active" data-sort="score">综合排名</button>
+                    <button class="sort-btn" data-sort="distance">跑量排名</button>
+                    <button class="sort-btn" data-sort="pace">配速排名</button>
+                </div>
+            </div>
+
+            <div class="rankings-list" id="rankings-list">
+                <div class="loading">
+                    <i class="fas fa-spinner fa-spin"></i> 加载排名数据中...
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>田径社排名系统 &copy; 2023 | 使用Netlify构建</p>
+            <p class="tip">
+                <i class="fas fa-mouse-pointer"></i> 提示：点击运动员卡片可以查看跑步照片和详细心得
+            </p>
+        </footer>
+    </div>
+
+    <!-- 图片查看模态框 -->
+    <div id="image-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-athlete-name">运动员照片</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="modal-image-container">
+                    <img id="modal-image" src="" alt="跑步照片">
+                </div>
+                <div class="modal-info">
+                    <div class="modal-stat">
+                        <i class="fas fa-road"></i>
+                        <span id="modal-distance">0 km</span>
+                    </div>
+                    <div class="modal-stat">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span id="modal-pace">0:00/km</span>
+                    </div>
+                    <div class="modal-stat">
+                        <i class="far fa-calendar-alt"></i>
+                        <span id="modal-date">2023-10-01</span>
+                    </div>
+                </div>
+                <div class="modal-reflections">
+                    <h4><i class="far fa-comment-dots"></i> 跑步心得</h4>
+                    <p id="modal-reflections-text">暂无心得</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Cloudinary配置 - 请替换为您的实际信息
+        // 可以从环境变量读取，这里简化处理
+        const CLOUDINARY_CONFIG = {
+            cloudName: 'dzz2oifvl',
+            uploadPreset: 'athletics_upload'
+        };
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            loadRankings();
+            
+            // 排序按钮事件
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    const sortBy = this.getAttribute('data-sort');
+                    loadRankings(sortBy);
+                });
+            });
+            
+            // 模态框关闭事件
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('image-modal').style.display = 'none';
+                });
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', function(e) {
+                const modal = document.getElementById('image-modal');
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // 显示图片模态框
+        function showAthleteImage(athlete) {
+            const modal = document.getElementById('image-modal');
+            const modalImage = document.getElementById('modal-image');
+            const modalName = document.getElementById('modal-athlete-name');
+            const modalDistance = document.getElementById('modal-distance');
+            const modalPace = document.getElementById('modal-pace');
+            const modalDate = document.getElementById('modal-date');
+            const modalReflections = document.getElementById('modal-reflections-text');
+            
+            // 设置模态框内容
+            modalName.textContent = `${athlete.name} 的跑步记录`;
+            modalDistance.textContent = `${athlete.distance} km`;
+            modalPace.textContent = `${athlete.pace}/km`;
+            modalDate.textContent = athlete.date || '未知日期';
+            modalReflections.textContent = athlete.reflections || '暂无跑步心得';
+            
+            // 设置图片
+            if (athlete.photo) {
+                modalImage.src = athlete.photo;
+                modalImage.alt = `${athlete.name}的跑步照片`;
+                modalImage.style.display = 'block';
+            } else {
+                modalImage.src = '';
+                modalImage.alt = '无照片';
+                modalImage.style.display = 'none';
+                modalImage.parentElement.innerHTML += `
+                    <div class="no-photo">
+                        <i class="far fa-image"></i>
+                        <p>该运动员未上传跑步照片</p>
+                    </div>
+                `;
+            }
+            
+            // 显示模态框
+            modal.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

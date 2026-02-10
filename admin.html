@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理系统 - 田径社排名系统</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-cogs"></i> 管理系统</h1>
+            <p>管理田径社成员数据和排名</p>
+            <nav>
+                <a href="index.html">排行榜</a>
+                <a href="upload.html">上传数据</a>
+                <a href="admin.html" class="active">管理</a>
+            </nav>
+        </header>
+
+        <div class="admin-container">
+            <div class="admin-panel">
+                <h2><i class="fas fa-users-cog"></i> 数据管理</h2>
+                <p class="admin-description">在此页面可以查看、编辑和删除所有成员的数据。请谨慎操作。</p>
+                
+                <div class="admin-controls">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="搜索姓名...">
+                        <button id="search-btn"><i class="fas fa-search"></i></button>
+                    </div>
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        <i class="fas fa-sync-alt"></i> 刷新数据
+                    </button>
+                </div>
+
+                <div class="admin-table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>排名</th>
+                                <th>姓名</th>
+                                <th>距离 (km)</th>
+                                <th>配速</th>
+                                <th>得分</th>
+                                <th>上传日期</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-table-body">
+                            <!-- 数据将通过JavaScript动态加载 -->
+                            <tr>
+                                <td colspan="7" class="loading-cell">
+                                    <i class="fas fa-spinner fa-spin"></i> 加载数据中...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>田径社排名系统 &copy; 2023 | 使用Netlify构建</p>
+            <p class="admin-warning"><i class="fas fa-exclamation-triangle"></i> 管理功能仅供授权人员使用</p>
+        </footer>
+    </div>
+
+    <!-- 编辑模态框 -->
+    <div id="edit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> 编辑数据</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="edit-form">
+                    <input type="hidden" id="edit-id">
+                    
+                    <div class="form-group">
+                        <label for="edit-name">姓名</label>
+                        <input type="text" id="edit-name" required>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit-distance">距离 (km)</label>
+                            <input type="number" id="edit-distance" step="0.01" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="edit-pace">配速 (分钟/km)</label>
+                            <input type="text" id="edit-pace" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="edit-reflections">跑步心得</label>
+                        <textarea id="edit-reflections" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-primary">保存更改</button>
+                        <button type="button" class="btn btn-secondary close-modal">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // 页面加载完成后获取管理数据
+        document.addEventListener('DOMContentLoaded', function() {
+            loadAdminData();
+            
+            // 刷新按钮事件
+            document.getElementById('refresh-btn').addEventListener('click', loadAdminData);
+            
+            // 搜索功能
+            document.getElementById('search-btn').addEventListener('click', function() {
+                const searchTerm = document.getElementById('search-input').value.toLowerCase();
+                filterTable(searchTerm);
+            });
+            
+            document.getElementById('search-input').addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    const searchTerm = this.value.toLowerCase();
+                    filterTable(searchTerm);
+                }
+            });
+            
+            // 模态框关闭事件
+            document.querySelectorAll('.close-modal').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    document.getElementById('edit-modal').style.display = 'none';
+                });
+            });
+            
+            // 编辑表单提交
+            document.getElementById('edit-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                updateAthleteData();
+            });
+            
+            // 点击模态框外部关闭
+            window.addEventListener('click', function(e) {
+                const modal = document.getElementById('edit-modal');
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
