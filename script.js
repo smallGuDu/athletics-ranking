@@ -517,4 +517,106 @@ function showAthleteImage(athlete) {
 }
 
 // 更新Netlify Functions中的add-data.js以支持图片数据
+
 // 在netlify/functions/add-data.js中添加图片处理逻辑
+// 简单的本地存储方案
+const LOCAL_STORAGE_KEY = 'athletics_data_v1';
+
+// 加载数据：先尝试本地，再尝试API
+async function loadRankings(sortBy = 'score') {
+    try {
+        // 1. 从localStorage读取
+        let athletes = getLocalData();
+        
+        // 2. 如果没有本地数据，尝试API
+        if (athletes.length === 0) {
+            const response = await fetch(`${API_BASE}/get-data`);
+            if (response.ok) {
+                const apiData = await response.json();
+                athletes = apiData;
+                saveLocalData(apiData);
+            }
+        }
+        
+        // 3. 如果还是没有，用示例数据
+        if (athletes.length === 0) {
+            athletes = getSampleData();
+        }
+        
+        // 处理数据
+        athletes.forEach(a => a.score = calculateScore(a.distance, a.pace));
+        athletes.sort((a, b) => b.score - a.score);
+        
+        updateStats(athletes);
+        renderRankings(athletes);
+        
+    } catch (error) {
+        console.error('加载失败:', error);
+    }
+}
+
+// 保存数据到本地
+function saveLocalData(data) {
+    try {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        console.log('本地保存成功:', data.length, '条');
+        return true;
+    } catch (e) {
+        console.warn('本地保存失败:', e);
+        return false;
+    }
+}
+
+// 从本地获取数据
+function getLocalData() {
+    try {
+        const data = localStorage.getItem(LOCAL_STORAGE_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch (e) {
+        console.warn('读取本地数据失败:', e);
+        return [];
+    }
+}
+
+// 提交数据
+async function submitAthleteData() {
+    try {
+        // 收集数据
+        const newAthlete = {
+            id: Date.now().toString(),
+            name: document.getElementById('name').value.trim(),
+            distance: parseFloat(document.getElementById('distance').value),
+            pace: document.getElementById('pace').value.trim(),
+            date: document.getElementById('date').value,
+            reflections: document.getElementById('reflections').value.trim(),
+            timestamp: new Date().toISOString(),
+            status: 'approved'
+        };
+        
+        // 1. 立即保存到本地
+        let athletes = getLocalData();
+        athletes.push(newAthlete);
+        saveLocalData(athletes);
+        
+        // 2. 尝试保存到服务器（可选）
+        try {
+            await fetch(`${API_BASE}/add-data`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newAthlete)
+            });
+        } catch (e) {
+            console.warn('服务器保存失败，但本地已保存');
+        }
+        
+        // 显示成功
+        showMessage('form-message', '提交成功！页面跳转中...', 'success');
+        
+        setTimeout(() => {
+            window.location.href = 'index.html';
+        }, 1500);
+        
+    } catch (error) {
+        showMessage('form-message', '提交失败: ' + error.message, 'error');
+    }
+}
